@@ -1,0 +1,22 @@
+[Buildset]
+BuildItems=@Variant(\x00\x00\x00\t\x00\x00\x00\x00\x01\x00\x00\x00\x0b\x00\x00\x00\x00\x01\x00\x00\x00\x0e\x00l\x00e\x00d\x00-\x00p\x00w\x00m)
+
+[CustomDefinesAndIncludes][ProjectPath0]
+Path=.
+parseAmbiguousAsCPP=true
+parserArguments=-ferror-limit=100 -fspell-checking -Wdocumentation -Wunused-parameter -Wunreachable-code -Wall -std=c++11
+parserArgumentsC=-ferror-limit=100 -fspell-checking -Wdocumentation -Wunused-parameter -Wunreachable-code -Wall -std=c99
+parserArgumentsCuda=-ferror-limit=100 -fspell-checking -Wdocumentation -Wunused-parameter -Wunreachable-code -Wall -std=c++11
+parserArgumentsOpenCL=-ferror-limit=100 -fspell-checking -Wdocumentation -Wunused-parameter -Wunreachable-code -Wall -cl-std=CL1.1
+
+[CustomDefinesAndIncludes][ProjectPath0][Compiler]
+Name=GCC
+
+[CustomDefinesAndIncludes][ProjectPath0][Includes]
+1=/home/mixi/pg/home/hardwario/led-pwm/sdk/bcl/inc
+2=/home/mixi/pg/home/hardwario/led-pwm/sdk/bcl/stm/inc
+3=/home/mixi/pg/home/hardwario/led-pwm/sdk/stm/hal/inc
+4=/home/mixi/pg/home/hardwario/led-pwm/sdk/sys/inc
+
+[Project]
+VersionControlSupport=kdevgit
