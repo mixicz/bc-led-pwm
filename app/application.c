@@ -93,13 +93,13 @@ static const bc_radio_sub_t mqtt_subs[] = {
 
 
 static const int pwm_channel[MAX_CHANNELS] = {
-    BC_PWM_P6,
-    BC_PWM_P7,
-    BC_PWM_P8,
     BC_PWM_P0,
     BC_PWM_P1,
     BC_PWM_P2,
     BC_PWM_P3,
+    BC_PWM_P6,
+    BC_PWM_P7,
+    BC_PWM_P8,
     BC_PWM_P12,
     BC_PWM_P14
 };
@@ -151,9 +151,9 @@ static module_config_t init_config = {
     {
         { {0, 0, 0, 0}, {255, 255, 255, 0}, 1, TIMEOUT_BASE, TIMEOUT_MAX, TIMEOUT_STEP, FADE_ON, FADE_OFF, FADE_CHANGE, 1.0 },
         { {1, 0, 0, 0}, {255, 255, 255, 0}, 1, TIMEOUT_BASE, TIMEOUT_MAX, TIMEOUT_STEP, FADE_ON, FADE_OFF, FADE_CHANGE, 1.0 },
-        { {2, 0, 0, 0}, {255, 255, 255, 0}, 1, TIMEOUT_BASE, TIMEOUT_MAX, TIMEOUT_STEP, FADE_ON, FADE_OFF, FADE_CHANGE, 1.0 }
+//         { {2, 0, 0, 0}, {255, 255, 255, 0}, 1, TIMEOUT_BASE, TIMEOUT_MAX, TIMEOUT_STEP, FADE_ON, FADE_OFF, FADE_CHANGE, 1.0 }
     },
-    3,
+    2,
     TEMPERATURE_ALERT,
     TEMPERATURE_MAX
 };
@@ -214,7 +214,7 @@ static inline uint32_t off_time_eval(int led_id)
 
 // led_status preparation functions
 // turns led on and refreshes off timer
-static void led_state_on(uint32_t led_id) {
+static void led_state_on(int led_id) {
     // Can't turn on the LEDs in case of overheating
     if (overheat) {
         bc_log_warning("can't turn on, overheating detected!");
@@ -248,7 +248,7 @@ static void led_state_on(uint32_t led_id) {
     }
 }
 
-static void led_state_off(uint32_t led_id) {
+static void led_state_off(int led_id) {
     char pub_json[60];
     sprintf(pub_json, "{\"onTime\":%lld,\"triggerCount\":%ld}", (bc_scheduler_get_spin_tick() - led_status[led_id].on_time) / 1000, led_status[led_id].trigger_count);
     bc_radio_pub_string("led-pwm/-/event/off", pub_json);
@@ -270,7 +270,7 @@ static void led_state_off(uint32_t led_id) {
     bc_log_debug("LED[%i]: turn off, steps = %i, target color = #%02x%02x%02x%02x", led_id, led_status[led_id].steps, led_status[led_id].pwm_target[0], led_status[led_id].pwm_target[1], led_status[led_id].pwm_target[2], led_status[led_id].pwm_target[3]);
 }
 
-static void led_state_change(uint32_t led_id) {
+static void led_state_change(int led_id) {
     if (led_status[led_id].state == LED_OFF)
         return;
 
@@ -313,7 +313,7 @@ static void pwm_timer(void * param)
             led_status[led_id].pwm_current[c] = led_status[led_id].pwm_target[c];
         }
         led_status[led_id].steps = 0;
-        bc_log_debug("LED[%i]: finished transition, color = #%02x%02x%02x%02x", led_id, (uint16_t)led_status[led_id].pwm_current[0], (uint16_t)led_status[led_id].pwm_current[1], (uint16_t)led_status[led_id].pwm_current[2], (uint16_t)led_status[led_id].pwm_current[3]);
+        bc_log_debug("LED[%i]: finished transition, color = #%02x%02x%02x%02x", (int)led_id, (uint16_t)led_status[led_id].pwm_current[0], (uint16_t)led_status[led_id].pwm_current[1], (uint16_t)led_status[led_id].pwm_current[2], (uint16_t)led_status[led_id].pwm_current[3]);
     }
 
     // sets pwm outputs to new computed state
@@ -578,6 +578,7 @@ void tmp112_event_handler(bc_tmp112_t *self, bc_tmp112_event_t event, void *even
 
 
 // Application initialization function which is called once after boot
+// TODO use bc_pwm_tim_configure for better PWM precission
 void application_init(void)
 {
     // initialize data structures
