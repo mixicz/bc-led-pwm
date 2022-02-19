@@ -1,5 +1,5 @@
 #include "application.h"
-#include "jsmn.h"
+//#include "jsmn.h"
 
 // Find defailed API description at https://sdk.hardwario.com/
 /*
@@ -45,7 +45,8 @@
 // #define EEPROM_SIGNATURE        0x58494d31
 
 // Release
-#define EEPROM_SIGNATURE        0x58494d30
+// #define EEPROM_SIGNATURE        0x58494d30
+#define EEPROM_SIGNATURE        0x58494d32
 
 #define TEMPERATURE_UPDATE_INTERVAL (10 * 1000)
 #define TEMPERATURE_TAG_PUB_NO_CHANGE_INTEVAL (15 * 60 * 1000)
@@ -56,6 +57,8 @@
 
 #define MAX_CHANNELS            9
 #define MAX_LEDS                9
+#define PWM_BITS                12
+#define PWM_MAX                 ((1 << PWM_BITS) - 1)
 
 // topic callback headers
 void led_trigger_set(uint64_t *id, const char *topic, void *value, void *param);
@@ -112,7 +115,7 @@ typedef enum {
 // color channels are in order: W, RGB, RGBW
 typedef struct {
     int8_t      channel[4];
-    uint8_t     color[4];
+    uint16_t    color[4];
     uint8_t     channels;
     bc_tick_t   timeout_base;
     bc_tick_t   timeout_max;
@@ -138,7 +141,8 @@ typedef struct {
 // release values
 #define TIMEOUT_BASE      90000
 #define TIMEOUT_MAX     1800000
-#define TIMEOUT_STEP      10000
+// #define TIMEOUT_MAX      300000
+#define TIMEOUT_STEP       5000
 
 #define FADE_ON         1500
 #define FADE_OFF        5000
@@ -149,11 +153,16 @@ typedef struct {
 
 static module_config_t init_config = {
     {
-        { {0, 0, 0, 0}, {255, 255, 255, 0}, 1, TIMEOUT_BASE, TIMEOUT_MAX, TIMEOUT_STEP, FADE_ON, FADE_OFF, FADE_CHANGE, 1.0 },
-        { {1, 0, 0, 0}, {255, 255, 255, 0}, 1, TIMEOUT_BASE, TIMEOUT_MAX, TIMEOUT_STEP, FADE_ON, FADE_OFF, FADE_CHANGE, 1.0 },
-//         { {2, 0, 0, 0}, {255, 255, 255, 0}, 1, TIMEOUT_BASE, TIMEOUT_MAX, TIMEOUT_STEP, FADE_ON, FADE_OFF, FADE_CHANGE, 1.0 }
+        { {0, 0, 0, 0}, {PWM_MAX, PWM_MAX, PWM_MAX, 0}, 1, TIMEOUT_BASE, TIMEOUT_MAX, TIMEOUT_STEP, FADE_ON, FADE_OFF, FADE_CHANGE, 1.0 },
+        { {1, 0, 0, 0}, {PWM_MAX, PWM_MAX, PWM_MAX, 0}, 1, TIMEOUT_BASE, TIMEOUT_MAX, TIMEOUT_STEP, FADE_ON, FADE_OFF, FADE_CHANGE, 1.0 },
+        { {2, 0, 0, 0}, {PWM_MAX, PWM_MAX, PWM_MAX, 0}, 1, TIMEOUT_BASE, TIMEOUT_MAX, TIMEOUT_STEP, FADE_ON, FADE_OFF, FADE_CHANGE, 1.0 },
+        { {3, 0, 0, 0}, {PWM_MAX, PWM_MAX, PWM_MAX, 0}, 1, TIMEOUT_BASE, TIMEOUT_MAX, TIMEOUT_STEP, FADE_ON, FADE_OFF, FADE_CHANGE, 1.0 },
+        { {4, 0, 0, 0}, {PWM_MAX, PWM_MAX, PWM_MAX, 0}, 1, TIMEOUT_BASE, TIMEOUT_MAX, TIMEOUT_STEP, FADE_ON, FADE_OFF, FADE_CHANGE, 1.0 },
+        { {5, 0, 0, 0}, {PWM_MAX, PWM_MAX, PWM_MAX, 0}, 1, TIMEOUT_BASE, TIMEOUT_MAX, TIMEOUT_STEP, FADE_ON, FADE_OFF, FADE_CHANGE, 1.0 },
+        { {6, 0, 0, 0}, {PWM_MAX, PWM_MAX, PWM_MAX, 0}, 1, TIMEOUT_BASE, TIMEOUT_MAX, TIMEOUT_STEP, FADE_ON, FADE_OFF, FADE_CHANGE, 1.0 },
+        { {7, 0, 0, 0}, {PWM_MAX, PWM_MAX, PWM_MAX, 0}, 1, TIMEOUT_BASE, TIMEOUT_MAX, TIMEOUT_STEP, FADE_ON, FADE_OFF, FADE_CHANGE, 1.0 },
     },
-    2,
+    8,
     TEMPERATURE_ALERT,
     TEMPERATURE_MAX
 };
@@ -229,7 +238,7 @@ static void led_state_on(int led_id) {
         led_status[led_id].steps = config.led_config[led_id].transition_on / LED_STEP_TIME;
         led_status[led_id].state = LED_ON;
         led_status[led_id].on_time = bc_scheduler_get_spin_tick();
-        bc_log_debug("LED[%i]: turn on, steps = %i, target color = #%02x%02x%02x%02x", led_id, led_status[led_id].steps, led_status[led_id].pwm_target[0], led_status[led_id].pwm_target[1], led_status[led_id].pwm_target[2], led_status[led_id].pwm_target[3]);
+        bc_log_debug("LED[%i]: turn on, steps = %i, target color = #%03x %03x %03x %03x", led_id, led_status[led_id].steps, led_status[led_id].pwm_target[0], led_status[led_id].pwm_target[1], led_status[led_id].pwm_target[2], led_status[led_id].pwm_target[3]);
     }
     led_status[led_id].off_time = off_time_eval(led_id);
 
@@ -267,7 +276,7 @@ static void led_state_off(int led_id) {
         led_status[led_id].transition_scheduler_id = bc_scheduler_register(pwm_timer, &led_ids[led_id], bc_tick_get());
     }
 
-    bc_log_debug("LED[%i]: turn off, steps = %i, target color = #%02x%02x%02x%02x", led_id, led_status[led_id].steps, led_status[led_id].pwm_target[0], led_status[led_id].pwm_target[1], led_status[led_id].pwm_target[2], led_status[led_id].pwm_target[3]);
+    bc_log_debug("LED[%i]: turn off, steps = %i, target color = #%03x %03x %03x %03x", led_id, led_status[led_id].steps, led_status[led_id].pwm_target[0], led_status[led_id].pwm_target[1], led_status[led_id].pwm_target[2], led_status[led_id].pwm_target[3]);
 }
 
 static void led_state_change(int led_id) {
@@ -313,7 +322,7 @@ static void pwm_timer(void * param)
             led_status[led_id].pwm_current[c] = led_status[led_id].pwm_target[c];
         }
         led_status[led_id].steps = 0;
-        bc_log_debug("LED[%i]: finished transition, color = #%02x%02x%02x%02x", (int)led_id, (uint16_t)led_status[led_id].pwm_current[0], (uint16_t)led_status[led_id].pwm_current[1], (uint16_t)led_status[led_id].pwm_current[2], (uint16_t)led_status[led_id].pwm_current[3]);
+        bc_log_debug("LED[%i]: finished transition, color = #%03x %03x %03x %03x", (int)led_id, (uint16_t)led_status[led_id].pwm_current[0], (uint16_t)led_status[led_id].pwm_current[1], (uint16_t)led_status[led_id].pwm_current[2], (uint16_t)led_status[led_id].pwm_current[3]);
     }
 
     // sets pwm outputs to new computed state
@@ -388,13 +397,13 @@ void led_brightness_set(uint64_t *id, const char *topic, void *value, void *para
 }
 
 
-static inline int jsoneq(const char *json, jsmntok_t *tok, const char *s) {
-  if (tok->type == JSMN_STRING && (int)strlen(s) == tok->end - tok->start &&
-      strncmp(json + tok->start, s, tok->end - tok->start) == 0) {
-    return 1;
-  }
-  return 0;
-}
+// static inline int jsoneq(const char *json, jsmntok_t *tok, const char *s) {
+//   if (tok->type == JSMN_STRING && (int)strlen(s) == tok->end - tok->start &&
+//       strncmp(json + tok->start, s, tok->end - tok->start) == 0) {
+//     return 1;
+//   }
+//   return 0;
+// }
 
 /*
 typedef struct {
@@ -413,7 +422,7 @@ typedef struct {
 
 #define SET_CFG(l, var)    if (var > 0) { config.led_config[l].var = var; bc_log_debug("    " #var " = %lld", var) ; }
 void led_config_set(uint64_t *id, const char *topic, void *value, void *param) {
-    static char topic_buff[50] = "led-pwm/-/config/state";
+/*    static char topic_buff[50] = "led-pwm/-/config/state";
     jsmn_parser parser;
     jsmntok_t tokens[16];
     char * js = (char *)value;
@@ -479,7 +488,7 @@ void led_config_set(uint64_t *id, const char *topic, void *value, void *param) {
         retval = false;
         bc_radio_pub_bool(topic_buff, &retval);
         bc_log_error("config: Error parsing configuration data, error=%i, data='%s'", led, js);
-    }
+    }*/
 }
 
 
@@ -577,6 +586,40 @@ void tmp112_event_handler(bc_tmp112_t *self, bc_tmp112_event_t event, void *even
 }
 
 
+ void _pwm_init(twr_pwm_channel_t channel)
+ {
+     static bool tim2_initialized = false;
+     static bool tim3_initialized = false;
+     static bool tim21_initialized = false;
+     static bool pll_enabled = false;
+
+     if (!pll_enabled)
+     {
+         twr_system_pll_enable();
+         pll_enabled = true;
+     }
+
+     if (!tim2_initialized && (channel == TWR_PWM_P0 || channel == TWR_PWM_P1 || channel == TWR_PWM_P2 || channel == TWR_PWM_P3))
+     {
+         // 5 us * 255 = cca 784 Hz
+         twr_pwm_tim_configure(TWR_PWM_TIM2_P0_P1_P2_P3, 1, PWM_MAX);
+         tim2_initialized = true;
+     }
+
+     if (!tim3_initialized && (channel == TWR_PWM_P6 || channel == TWR_PWM_P7 || channel == TWR_PWM_P8))
+     {
+         twr_pwm_tim_configure(TWR_PWM_TIM3_P6_P7_P8, 1, PWM_MAX);
+         tim3_initialized = true;
+     }
+
+     if (!tim21_initialized && (channel == TWR_PWM_P12 || channel == TWR_PWM_P14))
+     {
+         twr_pwm_tim_configure(TWR_PWM_TIM21_P12_P14, 1, PWM_MAX);
+         tim21_initialized = true;
+     }
+ }
+
+
 // Application initialization function which is called once after boot
 // TODO use bc_pwm_tim_configure for better PWM precission
 void application_init(void)
@@ -612,7 +655,7 @@ void application_init(void)
     // setup PWM for all configured GPIO ports
     for (int l=0; l<config.leds; l++) {
         for (int c=0; c<config.led_config[l].channels; c++) {
-            bc_pwm_init(pwm_channel[config.led_config[l].channel[c]]);
+            _pwm_init(pwm_channel[config.led_config[l].channel[c]]);
             bc_pwm_set(pwm_channel[config.led_config[l].channel[c]], 0);
             bc_pwm_enable(pwm_channel[config.led_config[l].channel[c]]);
             bc_log_debug("APP: PWM init, LED=%i, channel=%i, port=%i", l, c, pwm_channel[config.led_config[l].channel[c]]);
