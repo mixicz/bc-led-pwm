@@ -447,17 +447,17 @@ void led_config_set(uint64_t *id, const char *topic, void *value, void *param) {
 
     if (r > 0) {
         for (int i = 0; i < r; i++) {
-            if (jsoneq(js, tokens+i, "timeoutBase")) {
+            if (jsoneq(js, tokens+i, "toBase")) {
                 timeout_base = atol(js+tokens[++i].start);
-            } else if (jsoneq(js, tokens+i, "timeoutMax")) {
+            } else if (jsoneq(js, tokens+i, "toMax")) {
                 timeout_max = atol(js+tokens[++i].start);
-            } else if (jsoneq(js, tokens+i, "timeoutStep")) {
+            } else if (jsoneq(js, tokens+i, "toStep")) {
                 timeout_step = atol(js+tokens[++i].start);
-            } else if (jsoneq(js, tokens+i, "transitionOn")) {
+            } else if (jsoneq(js, tokens+i, "trOn")) {
                 transition_on = atol(js+tokens[++i].start);
-            } else if (jsoneq(js, tokens+i, "transitionOff")) {
+            } else if (jsoneq(js, tokens+i, "trOff")) {
                 transition_off = atol(js+tokens[++i].start);
-            } else if (jsoneq(js, tokens+i, "transitionChange")) {
+            } else if (jsoneq(js, tokens+i, "trChng")) {
                 transition_change = atol(js+tokens[++i].start);
             }
         }
