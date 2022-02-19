@@ -14,9 +14,9 @@ Name=GCC
 
 [CustomDefinesAndIncludes][ProjectPath0][Includes]
 1=/home/mixi/pg/home/hardwario/led-pwm/sdk/bcl/inc
-2=/home/mixi/pg/home/hardwario/led-pwm/sdk/bcl/stm/inc
-3=/home/mixi/pg/home/hardwario/led-pwm/sdk/stm/hal/inc
-4=/home/mixi/pg/home/hardwario/led-pwm/sdk/sys/inc
+2=/home/mixi/pg/home/hardwario/led-pwm/sdk/stm/hal/inc
+3=/home/mixi/pg/home/hardwario/led-pwm/sdk/sys/inc
+4=/home/mixi/pg/home/hardwario/led-pwm/sdk/twr/inc
 
 [Project]
 VersionControlSupport=kdevgit
