@@ -140,8 +140,8 @@ typedef struct {
 
 // release values
 #define TIMEOUT_BASE      90000
-#define TIMEOUT_MAX     1800000
-// #define TIMEOUT_MAX      300000
+// #define TIMEOUT_MAX     1800000
+#define TIMEOUT_MAX      300000
 #define TIMEOUT_STEP       5000
 
 #define FADE_ON         1500
@@ -162,7 +162,7 @@ static module_config_t init_config = {
         { {6, 0, 0, 0}, {PWM_MAX, PWM_MAX, PWM_MAX, 0}, 1, TIMEOUT_BASE, TIMEOUT_MAX, TIMEOUT_STEP, FADE_ON, FADE_OFF, FADE_CHANGE, 1.0 },
         { {7, 0, 0, 0}, {PWM_MAX, PWM_MAX, PWM_MAX, 0}, 1, TIMEOUT_BASE, TIMEOUT_MAX, TIMEOUT_STEP, FADE_ON, FADE_OFF, FADE_CHANGE, 1.0 },
     },
-    8,
+    2,
     TEMPERATURE_ALERT,
     TEMPERATURE_MAX
 };
