@@ -10,6 +10,10 @@
  *  - transitions topic
  *  - color topic
  *  - test overheat protection
+ *  - PWM fan for active cooling
+ *  - configuration over protobuf
+ *  - test command
+ *  - "ring" command
  */
 
 /*
@@ -19,14 +23,12 @@
  *          payload:
  *              N - increases trigger count by specified number and refreshess off timer (N=0 just refreshes the timer)
  *          - triggers lighting up with automatic turning off after configured timeout, multiple triggers while lit on does increase off timeout
- *      led-pwm/-/blink/set             int mode
- *          - blinks for predefined interval
  *      led-pwm/{0-N}/brightness/set    float brightness [%]
- *      led-pwm/{0-N}/color/set
- *      led-pwm/{0-N}/timeout/set
+ *      -- led-pwm/{0-N}/color/set
+ *      -- led-pwm/{0-N}/timeout/set
  *          {"base":90, "max":1800}
  *          - timeout in seconds for shutting off triggered light. Multiple triggers does increase timeout up to "max"
- *      led-pwm/{0-N}/transitions/set
+ *      -- led-pwm/{0-N}/transitions/set
  *          {"on": 1.5, "off":10, "change":1.0}
  *          - sets up transition times between states in seconds
  *
@@ -57,6 +59,7 @@
 
 #define MAX_CHANNELS            9
 #define MAX_LEDS                9
+#define MAX_FANS                2
 #define PWM_BITS                12
 #define PWM_MAX                 ((1 << PWM_BITS) - 1)
 
@@ -126,9 +129,22 @@ typedef struct {
     float       brightness;
 } led_config_t;
 
+typedef struct 
+{
+    int8_t      channel;
+    float       temp_low;
+    float       temp_high;
+    float       speed_low;
+    float       speed_high;
+    float       speed_init;
+} fan_config_t;
+
+
 typedef struct {
     led_config_t    led_config[MAX_LEDS];
     uint8_t         leds;
+    fan_config_t    fan_config[MAX_FANS];
+    uint8_t         fans;
     float           alert_temp;
     float           max_temp;
 } module_config_t;
@@ -148,8 +164,14 @@ typedef struct {
 #define FADE_OFF        5000
 #define FADE_CHANGE      500
 
-#define TEMPERATURE_ALERT   60.0
+#define TEMPERATURE_ALERT   50.0
 #define TEMPERATURE_MAX     70.0
+
+#define FAN_SPEED_LOW       0.0
+#define FAN_SPEED_HIGH      1.0
+#define FAN_SPEED_INIT      FAN_SPEED_HIGH
+#define FAN_TEMP_LOW        ( TEMPERATURE_ALERT - 20.0 )
+#define FAN_TEMP_HIGH       ( TEMPERATURE_ALERT - 10.0 )
 
 static module_config_t init_config = {
     {
@@ -163,6 +185,10 @@ static module_config_t init_config = {
         { {7, 0, 0, 0}, {PWM_MAX, PWM_MAX, PWM_MAX, 0}, 1, TIMEOUT_BASE, TIMEOUT_MAX, TIMEOUT_STEP, FADE_ON, FADE_OFF, FADE_CHANGE, 1.0 },
     },
     2,
+    {
+        8, FAN_TEMP_LOW, FAN_TEMP_HIGH, FAN_SPEED_LOW, FAN_SPEED_HIGH, FAN_SPEED_INIT
+    },
+    1,
     TEMPERATURE_ALERT,
     TEMPERATURE_MAX
 };
@@ -563,6 +589,21 @@ void tmp112_event_handler(bc_tmp112_t *self, bc_tmp112_event_t event, void *even
             param->next_pub = bc_scheduler_get_spin_tick() + TEMPERATURE_TAG_PUB_NO_CHANGE_INTEVAL;
         }
 
+        // FAN control
+        for (uint8_t f = 0; f < config.fans; f++) {
+           if (value < config.fan_config[f].temp_low) {
+               bc_pwm_set(pwm_channel[config.fan_config[f].channel], (uint16_t)((float)PWM_MAX * config.fan_config[f].speed_low));
+           } else if (value > config.fan_config[f].temp_high) {
+               bc_pwm_set(pwm_channel[config.fan_config[f].channel], (uint16_t)((float)PWM_MAX * config.fan_config[f].speed_high));
+           } else {
+               float speed_ramp = config.fan_config[f].speed_high - config.fan_config[f].speed_low;
+               float temp_ramp = config.fan_config[f].temp_high - config.fan_config[f].temp_low;
+               float temp_rel = value - config.fan_config[f].temp_low;
+               float speed = config.fan_config[f].speed_low + (temp_rel / temp_ramp) * speed_ramp;
+               bc_pwm_set(pwm_channel[config.fan_config[f].channel], (uint16_t)((float)PWM_MAX * speed));
+           }
+        }  
+
         // temperature monitoring
         if (value > config.max_temp) {
             // when maximum temperature is reached, turn off all LEDs
@@ -652,7 +693,7 @@ void application_init(void)
     bc_tmp112_set_event_handler(&tmp112, tmp112_event_handler, &temperature_event_param);
     bc_tmp112_set_update_interval(&tmp112, TEMPERATURE_UPDATE_INTERVAL);
 
-    // setup PWM for all configured GPIO ports
+    // setup PWM for all configured LED GPIO ports
     for (int l=0; l<config.leds; l++) {
         for (int c=0; c<config.led_config[l].channels; c++) {
             _pwm_init(pwm_channel[config.led_config[l].channel[c]]);
@@ -661,6 +702,14 @@ void application_init(void)
             bc_log_debug("APP: PWM init, LED=%i, channel=%i, port=%i", l, c, pwm_channel[config.led_config[l].channel[c]]);
         }
     }
+
+    // setup PWM for all configured FAN GPIO ports
+    for (uint8_t f = 0; f < config.fans; f++) {
+        _pwm_init(pwm_channel[config.fan_config[f].channel]);
+        bc_pwm_set(pwm_channel[config.fan_config[f].channel], (uint16_t)((float)PWM_MAX * config.fan_config[f].speed_init));
+        bc_pwm_enable(pwm_channel[config.fan_config[f].channel]);
+        bc_log_debug("APP: PWM init, FAN=%i, port=%i", f, pwm_channel[config.fan_config[f].channel]);
+    }  
 
     // Now we can advertise ourselves on network
     bc_radio_set_event_handler(radio_event_handler, NULL);
