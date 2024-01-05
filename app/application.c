@@ -41,7 +41,7 @@
  *      led-pwm/{0-N}/trigger/state     int trigger_count
  *      led-pwm/-/brightness/state      float brightness [%]
  *      led-pwm/-/event/on              null
- *      led-pwm/-/event/off
+ *      led-pwm/-/event/off             {"onTime":%lld,"triggerCount":%ld}
  */
 
 // Debug
